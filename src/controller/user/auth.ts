@@ -10,7 +10,7 @@ import { UserModel } from "../../models/User";
 interface UserStore {
   [email: string]: {
     otp: number;
-    userData: IUser;
+    userData: Partial<IUser>;
   };
 }
 
@@ -55,7 +55,13 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 
     userStore[email] = {
       otp,
-      userData: { firstName, lastName, email, password: securePassword, isActive: true },
+      userData: {
+        firstName,
+        lastName,
+        email,
+        password: securePassword,
+        isActive: true,
+      },
     };
 
     await sendOTPEmail(email, otp);
@@ -102,7 +108,7 @@ export const verifyOTP = async (req: Request, res: Response) => {
         { expiresIn: "1d" }
       );
 
-      console.log('accessToken:', accessToken);
+      console.log("accessToken:", accessToken);
 
       res.status(HttpStatusCode.OK).json({
         message: "OTP verified successfully. Welcome to your account!",
