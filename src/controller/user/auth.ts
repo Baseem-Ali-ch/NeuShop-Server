@@ -6,6 +6,7 @@ import bcrypt from "bcrypt";
 import { transporter } from "../../config/nodemailer";
 import jwt from "jsonwebtoken";
 import { UserModel } from "../../models/User";
+import redisClient from "../../config/redis";
 
 interface UserStore {
   [email: string]: {
@@ -101,19 +102,36 @@ export const verifyOTP = async (req: Request, res: Response) => {
 
       delete userStore[email];
 
-      // access token
       const accessToken = jwt.sign(
-        { id: newUser?._id, email: newUser?.email },
-        process.env.JWT_SECRET || "",
-        { expiresIn: "1d" }
+        { email },
+        process.env.JWT_ACCESS_SECRET || "",
+        { expiresIn: "15m" }
       );
 
-      console.log("accessToken:", accessToken);
+      const refreshToken = jwt.sign(
+        { email },
+        process.env.JWT_REFRESH_SECRET || "",
+        { expiresIn: "7d" }
+      );
+
+      // Store tokens in cookies
+      res.cookie("userAccessToken", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 15 * 60 * 1000,
+      });
+
+      res.cookie("userRefreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      });
 
       res.status(HttpStatusCode.OK).json({
         message: "OTP verified successfully. Welcome to your account!",
         data: userData.userData,
-        accessToken,
       });
     } else {
       res.status(HttpStatusCode.UNAUTHORIZED).json({
@@ -129,40 +147,60 @@ export const verifyOTP = async (req: Request, res: Response) => {
 };
 
 // Login user
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: Request, res: Response):Promise<any> => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      res.status(HttpStatusCode.BAD_REQUEST).json({
+      return res.status(HttpStatusCode.BAD_REQUEST).json({
         message: StatusMessage.BAD_REQUEST,
       });
     }
 
     const user = await UserModel.findOne({ email });
     if (!user) {
-      res.status(HttpStatusCode.NOT_FOUND).json({
+      return res.status(HttpStatusCode.NOT_FOUND).json({
         message: "User not found.",
       });
     } else {
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
-        res.status(HttpStatusCode.UNAUTHORIZED).json({
+        return res.status(HttpStatusCode.UNAUTHORIZED).json({
           message: "Invalid password.",
         });
       }
     }
 
-    // access token
+    // Generate access token
     const accessToken = jwt.sign(
       { id: user?._id, email: user?.email },
-      process.env.JWT_SECRET || "",
-      { expiresIn: "1d" }
+      process.env.JWT_ACCESS_SECRET || "",
+      { expiresIn: "1s" }
     );
+
+    // Generate refresh token
+    const refreshToken = jwt.sign(
+      { id: user?._id, email: user?.email },
+      process.env.JWT_REFRESH_SECRET || "",
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("userAccessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production" ? true : false,
+      sameSite: "lax",
+      maxAge: 15 * 60 * 1000,
+    });
+    
+    res.cookie("userRefreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production" ? true : false,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(HttpStatusCode.OK).json({
       message: "Login successful.",
       data: user,
-      accessToken,
     });
   } catch (error) {
     console.log("Error in login:", error);
@@ -170,4 +208,22 @@ export const login = async (req: Request, res: Response) => {
       message: StatusMessage.INTERNAL_SERVER_ERROR,
     });
   }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  const token = req.cookies.accessToken;
+
+  if (token) {
+    const decoded: any = jwt.decode(token);
+    const expiresIn = decoded?.exp ? decoded.exp * 1000 - Date.now() : 0;
+
+    await redisClient.set(`blacklist:${token}`, "true", "PX", expiresIn);
+  }
+
+  res.clearCookie("userAccessToken");
+  res.clearCookie("userRefreshToken");
+
+  res.status(HttpStatusCode.OK).json({
+    message: "Logout successful.",
+  });
 };

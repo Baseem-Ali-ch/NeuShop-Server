@@ -1,20 +1,40 @@
-import { NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { HttpStatusCode } from '../constants/httpStatusCodes';
+import jwt from "jsonwebtoken";
+import redisClient from "../config/redis";
+import { HttpStatusCode } from "../constants/httpStatusCodes";
+import mongoose from "mongoose";
 
-export const verifyToken = async (req: any, res: any, next: NextFunction) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+export const verifyToken = async (req: any, res: any, next: Function) => {
+  const token = req.cookies.userAccessToken;
   if (!token) {
-    return res.status(HttpStatusCode.UNAUTHORIZED).json({ message: 'Authentication required' });
+    return res.status(HttpStatusCode.UNAUTHORIZED).json({
+      message: "Access token is missing.",
+    });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
-    req.user = (decoded as any).id;
+    const isBlacklisted = await redisClient.get(`blacklist:${token}`);
+    if (isBlacklisted) {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        message: "Token is blacklisted.",
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET || "");
+    req.user = decoded;
+    if (req.user.id) {
+      req.user.id = new mongoose.Types.ObjectId(req.user.id);
+    }
     next();
-  } catch (error) {
-    console.log('Invalid token', error);
-    return res.status(HttpStatusCode.FORBIDDEN).json({ message: 'Access Denied' });
+  } catch (error:any) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        message: "Access token expired",
+        reason: "expired",
+      });
+    }
+    return res.status(HttpStatusCode.UNAUTHORIZED).json({
+      message: "Invalid or expired token.",
+      reason: "invalid",
+    });
   }
 };

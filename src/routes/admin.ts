@@ -17,4 +17,6 @@ adminRoutes.get("/products", verifyToken, productController.getAllProducts);
 // Define routes for admin order management
 adminRoutes.get("/orders", verifyToken, orderController.getAllOrders);
 
+adminRoutes.get('/customers', verifyToken, orderController.getAllCustomers);
+
 export default adminRoutes;
