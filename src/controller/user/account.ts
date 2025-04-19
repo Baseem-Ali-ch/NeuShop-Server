@@ -5,6 +5,7 @@ import { UserModel } from "../../models/User";
 import { IUser } from "../../interfaces/IUser";
 import bcrypt from "bcrypt";
 import { AddressModel } from "../../models/Address";
+import { PaymentModel } from "../../models/Payment";
 
 // Get user details
 export const getUserDetails = async (
@@ -303,5 +304,172 @@ export const setDefaultAddress = async (
     res
       .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
       .json({ message: "Failed to set default address." });
+  }
+};
+
+// Fetch all payment methods for a user
+export const getPaymentMethods = async (
+  req: any,
+  res: Response
+): Promise<any> => {
+  try {
+    const user_id = req.user.id;
+    if (!user_id) {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        message: StatusMessage.UNAUTHORIZED,
+      });
+    }
+    const paymentMethods = await PaymentModel.find({ userId: user_id });
+    res.status(HttpStatusCode.OK).json(paymentMethods);
+  } catch (error) {
+    console.error("Error fetching payment methods:", error);
+    res
+      .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
+      .json({ message: "Failed to fetch payment methods." });
+  }
+};
+
+// Add a new payment method
+export const addPaymentMethod = async (
+  req: any,
+  res: Response
+): Promise<any> => {
+  try {
+    const { ...paymentData } = req.body;
+
+    const user_id = req.user.id;
+    if (!user_id) {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        message: StatusMessage.UNAUTHORIZED,
+      });
+    }
+
+    // Create a new payment method
+    const newPaymentMethod = await PaymentModel.create({
+      userId: user_id,
+      ...paymentData,
+    });
+
+    // If the new payment method is set as default, update other methods
+    if (paymentData.isDefault) {
+      await PaymentModel.updateMany(
+        { userId: user_id, _id: { $ne: newPaymentMethod._id } },
+        { isDefault: false }
+      );
+    }
+
+    res.status(HttpStatusCode.CREATED).json(newPaymentMethod);
+  } catch (error) {
+    console.error("Error adding payment method:", error);
+    res
+      .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
+      .json({ message: "Failed to add payment method." });
+  }
+};
+
+// Update a payment method
+export const updatePaymentMethod = async (
+  req: any,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const { ...paymentData } = req.body;
+    const user_id = req.user.id;
+    if (!user_id) {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        message: StatusMessage.UNAUTHORIZED,
+      });
+    }
+    const updatedPaymentMethod = await PaymentModel.findByIdAndUpdate(
+      id,
+      { userId: user_id, ...paymentData },
+      { new: true }
+    );
+
+    if (!updatedPaymentMethod) {
+      return res
+        .status(HttpStatusCode.NOT_FOUND)
+        .json({ message: "Payment method not found." });
+    }
+
+    // If the updated payment method is set as default, update other methods
+    if (paymentData.isDefault) {
+      await PaymentModel.updateMany(
+        { userId: user_id, _id: { $ne: updatedPaymentMethod._id } },
+        { isDefault: false }
+      );
+    }
+
+    res.status(HttpStatusCode.OK).json(updatedPaymentMethod);
+  } catch (error) {
+    console.error("Error updating payment method:", error);
+    res
+      .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
+      .json({ message: "Failed to update payment method." });
+  }
+};
+
+// Delete a payment method
+export const deletePaymentMethod = async (
+  req: any,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(HttpStatusCode.BAD_REQUEST).json({
+        message: StatusMessage.BAD_REQUEST,
+      });
+    }
+    const deletedPaymentMethod = await PaymentModel.findByIdAndDelete(id);
+
+    if (!deletedPaymentMethod) {
+      return res
+        .status(HttpStatusCode.NOT_FOUND)
+        .json({ message: "Payment method not found." });
+    }
+
+    res
+      .status(HttpStatusCode.OK)
+      .json({ message: "Payment method deleted successfully." });
+  } catch (error) {
+    console.error("Error deleting payment method:", error);
+    res
+      .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
+      .json({ message: "Failed to delete payment method." });
+  }
+};
+
+// Set a payment method as default
+export const setDefaultPaymentMethod = async (
+  req: any,
+  res: Response
+): Promise<any> => {
+  try {
+    const { id } = req.params;
+    const user_id = req.user.id;
+    if (!user_id) {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        message: StatusMessage.UNAUTHORIZED,
+      });
+    }
+    // Set the selected payment method as default
+    await PaymentModel.findByIdAndUpdate(id, { isDefault: true });
+
+    // Update other payment methods to not be default
+    await PaymentModel.updateMany(
+      { userId: user_id, _id: { $ne: id } },
+      { isDefault: false }
+    );
+
+    res
+      .status(HttpStatusCode.OK)
+      .json({ message: "Default payment method updated." });
+  } catch (error) {
+    console.error("Error setting default payment method:", error);
+    res
+      .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
+      .json({ message: "Failed to set default payment method." });
   }
 };

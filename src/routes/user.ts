@@ -16,11 +16,19 @@ userRoutes.post('/auth/logout', verifyToken, authController.logout);
 userRoutes.get("/user/details", verifyToken, accountController.getUserDetails);
 userRoutes.put('/user/details', verifyToken, accountController.updateUser);
 userRoutes.put('/user/details/password', verifyToken, accountController.updateUserPassword);
+
 userRoutes.post('/addresses', verifyToken, accountController.addAddress);
 userRoutes.get('/addresses', verifyToken, accountController.getAddresses);
 userRoutes.put('/addresses/:id', verifyToken, accountController.updateAddress);
 userRoutes.delete('/addresses/:id', verifyToken, accountController.deleteAddress);
 userRoutes.patch('/addresses/:id', verifyToken, accountController.setDefaultAddress);
+
+userRoutes.get("/payment-methods", verifyToken, accountController.getPaymentMethods);
+userRoutes.post("/payment-methods", verifyToken, accountController.addPaymentMethod);
+userRoutes.put("/payment-methods/:id", verifyToken, accountController.updatePaymentMethod);
+userRoutes.delete("/payment-methods/:id", verifyToken, accountController.deletePaymentMethod);
+userRoutes.patch("/payment-methods/:id", verifyToken, accountController.setDefaultPaymentMethod);
+
 
 // Define routes for product management
 userRoutes.get("/products", verifyToken, productController.getProducts);
