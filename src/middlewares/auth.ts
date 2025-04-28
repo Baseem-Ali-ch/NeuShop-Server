@@ -4,7 +4,7 @@ import { HttpStatusCode } from "../constants/httpStatusCodes";
 import mongoose from "mongoose";
 
 export const verifyToken = async (req: any, res: any, next: Function) => {
-  const token = req.cookies.userAccessToken;
+  const token = req.cookies.accessToken;
   if (!token) {
     return res.status(HttpStatusCode.UNAUTHORIZED).json({
       message: "Access token is missing.",
@@ -25,7 +25,8 @@ export const verifyToken = async (req: any, res: any, next: Function) => {
       req.user.id = new mongoose.Types.ObjectId(req.user.id);
     }
     next();
-  } catch (error:any) {
+  } catch (error: any) {
+    console.log('error', error)
     if (error.name === "TokenExpiredError") {
       return res.status(HttpStatusCode.UNAUTHORIZED).json({
         message: "Access token expired",

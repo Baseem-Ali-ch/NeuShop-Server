@@ -3,18 +3,18 @@ import { HttpStatusCode } from "../../constants/httpStatusCodes";
 import { StatusMessage } from "../../constants/responseMessages";
 import { ProductModel } from "../../models/Product";
 
-export const getProducts = async (req: any, res: Response): Promise<void> => {
+export const getProducts = async (req: any, res: Response): Promise<any> => {
   try {
-    const user_id = req.user;
-    if (!user_id) {
-      res.status(HttpStatusCode.UNAUTHORIZED).json({
-        message: StatusMessage.UNAUTHORIZED,
-      });
-    }
+    // const user_id = req.user;
+    // if (!user_id) {
+    //   return res.status(HttpStatusCode.UNAUTHORIZED).json({
+    //     message: StatusMessage.UNAUTHORIZED,
+    //   });
+    // }
 
     const products = await ProductModel.find();
     if (!products) {
-      res.status(HttpStatusCode.NOT_FOUND).json({
+      return res.status(HttpStatusCode.NOT_FOUND).json({
         message: StatusMessage.NOT_FOUND,
       });
     }

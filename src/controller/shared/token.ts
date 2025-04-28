@@ -7,7 +7,7 @@ export const refreshToken = async (
   req: Request,
   res: Response
 ): Promise<any> => {
-  const refreshToken = req.cookies.userRefreshToken;
+  const refreshToken = req.cookies.refreshToken;
 
   if (!refreshToken) {
     return res.status(HttpStatusCode.UNAUTHORIZED).json({
@@ -39,7 +39,7 @@ export const refreshToken = async (
     );
 
     // Set new access token in cookie
-    res.cookie("userAccessToken", newAccessToken, {
+    res.cookie("accessToken", newAccessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production" ? true : false,
       sameSite: "lax",

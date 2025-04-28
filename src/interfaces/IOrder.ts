@@ -24,9 +24,15 @@ export interface IOrder extends Document {
     image: string;
   }[];
   total: number;
+  subtotal: number;
   tax: number
   orderId: string;
   userId: string
   createdAt?: Date;
-  status?: ['Processing', 'Shipped', 'Delivered', 'Cancelled'];
+  status?: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Returned'];
+  paymentStatus?: ['Paid', 'Unpaid'];
+  cancellationReason?: string;
+  cancelledAt?: Date;
+  returnReason?:string;
+  returnedAt?: Date;
 }

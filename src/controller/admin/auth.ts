@@ -8,7 +8,6 @@ import { AdminModel } from "../../models/Admin";
 export const login = async (req: Request, res: Response): Promise<any> => {
   try {
     const { email, password } = req.body;
-    console.log("body", req.body);
     if (!email || !password) {
       return res.status(HttpStatusCode.BAD_REQUEST).json({
         message: StatusMessage.BAD_REQUEST,
@@ -35,17 +34,36 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       }
     }
 
-    // access token
     const accessToken = jwt.sign(
       { id: admin?._id, email: admin?.email },
-      process.env.JWT_SECRET || "",
+      process.env.JWT_ACCESS_SECRET || "",
       { expiresIn: "1d" }
     );
+
+    // Generate refresh token
+    const refreshToken = jwt.sign(
+      { id: admin?._id, email: admin?.email },
+      process.env.JWT_REFRESH_SECRET || "",
+      { expiresIn: "7d" }
+    );
+
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production" ? true : false,
+      sameSite: "lax",
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production" ? true : false,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     res.status(HttpStatusCode.OK).json({
       message: "Login successful.",
       data: admin,
-      accessToken,
     });
   } catch (error) {
     console.log("Error in login:", error);

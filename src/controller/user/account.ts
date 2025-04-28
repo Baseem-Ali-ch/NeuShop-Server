@@ -6,6 +6,8 @@ import { IUser } from "../../interfaces/IUser";
 import bcrypt from "bcrypt";
 import { AddressModel } from "../../models/Address";
 import { PaymentModel } from "../../models/Payment";
+import { OrderModel } from "../../models/Order";
+import { WalletModel } from "../../models/Wallet";
 
 // Get user details
 export const getUserDetails = async (
@@ -471,5 +473,42 @@ export const setDefaultPaymentMethod = async (
     res
       .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
       .json({ message: "Failed to set default payment method." });
+  }
+};
+
+export const getOrders = async (req: any, res: Response): Promise<any> => {
+  try {
+    const user_id = req.user.id;
+    if (!user_id) {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        message: StatusMessage.UNAUTHORIZED,
+      });
+    }
+    const orders = await OrderModel.find({ userId: user_id });
+    res.status(HttpStatusCode.OK).json(orders);
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    res
+      .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
+      .json({ message: "Failed to fetch orders." });
+  }
+};
+
+export const getWallet = async (req: any, res: Response): Promise<any> => {
+  try {
+    const user_id = req.user.id;
+    if (!user_id) {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        message: StatusMessage.UNAUTHORIZED,
+      });
+    }
+    const wallet = await WalletModel.find({ userId: user_id });
+    console.log("Wallet:", wallet);
+    res.status(HttpStatusCode.OK).json(wallet);
+  } catch (error) {
+    console.error("Error fetching orders:", error);
+    res
+      .status(HttpStatusCode.INTERNAL_SERVER_ERROR)
+      .json({ message: "Failed to fetch wallet." });
   }
 };

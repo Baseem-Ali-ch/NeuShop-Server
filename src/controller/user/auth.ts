@@ -50,6 +50,13 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
+    const user = await UserModel.find({ email });
+    if (user) {
+      return res.status(HttpStatusCode.FORBIDDEN).json({
+        message: "This email is already taken.",
+      });
+    }
+
     const securePassword = await bcrypt.hash(password, 10);
     const otp = Math.floor(100000 + Math.random() * 900000);
     console.log("Generated OTP:", otp);
@@ -105,7 +112,7 @@ export const verifyOTP = async (req: Request, res: Response) => {
       const accessToken = jwt.sign(
         { email },
         process.env.JWT_ACCESS_SECRET || "",
-        { expiresIn: "15m" }
+        { expiresIn: "1d" }
       );
 
       const refreshToken = jwt.sign(
@@ -115,18 +122,18 @@ export const verifyOTP = async (req: Request, res: Response) => {
       );
 
       // Store tokens in cookies
-      res.cookie("userAccessToken", accessToken, {
+      res.cookie("accessToken", accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
         maxAge: 15 * 60 * 1000,
       });
 
-      res.cookie("userRefreshToken", refreshToken, {
+      res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       res.status(HttpStatusCode.OK).json({
@@ -147,7 +154,7 @@ export const verifyOTP = async (req: Request, res: Response) => {
 };
 
 // Login user
-export const login = async (req: Request, res: Response):Promise<any> => {
+export const login = async (req: Request, res: Response): Promise<any> => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -161,20 +168,26 @@ export const login = async (req: Request, res: Response):Promise<any> => {
       return res.status(HttpStatusCode.NOT_FOUND).json({
         message: "User not found.",
       });
-    } else {
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(HttpStatusCode.UNAUTHORIZED).json({
-          message: "Invalid password.",
-        });
-      }
+    }
+
+    if (user.isActive === false) {
+      return res.status(HttpStatusCode.FORBIDDEN).json({
+        message: "This user has been blocked.",
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(HttpStatusCode.UNAUTHORIZED).json({
+        message: "Invalid password.",
+      });
     }
 
     // Generate access token
     const accessToken = jwt.sign(
       { id: user?._id, email: user?.email },
       process.env.JWT_ACCESS_SECRET || "",
-      { expiresIn: "1s" }
+      { expiresIn: "1d" }
     );
 
     // Generate refresh token
@@ -184,14 +197,14 @@ export const login = async (req: Request, res: Response):Promise<any> => {
       { expiresIn: "7d" }
     );
 
-    res.cookie("userAccessToken", accessToken, {
+    res.cookie("accessToken", accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production" ? true : false,
       sameSite: "lax",
       maxAge: 15 * 60 * 1000,
     });
-    
-    res.cookie("userRefreshToken", refreshToken, {
+
+    res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production" ? true : false,
       sameSite: "lax",
